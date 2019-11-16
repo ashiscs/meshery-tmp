@@ -26,5 +26,6 @@ var Version = "dev"
 
 func main() {
 	fmt.Printf("Version:%v\t", Version)
+	cmd.Build = Version
 	cmd.Execute()
 }
