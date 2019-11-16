@@ -15,14 +15,10 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/layer5io/meshery/mesheryctl/cmd"
 )
 
 var Version = "dev"
-
-//var build string
 
 func main() {
 	cmd.Build = Version
