@@ -28,8 +28,8 @@ var versionCmd = &cobra.Command{
 	Short: "version Meshery",
 	Long:  `version all Meshery containers, remove their instances and prune their connected volumes.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		Build = "dev"
-		fmt.Println("Version:\t", cmd.Build)
+		//Build = "dev"
+		fmt.Println("Version:\t", Build)
 	},
 }
 
