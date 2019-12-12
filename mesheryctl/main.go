@@ -19,8 +19,10 @@ import (
 )
 
 var version = "dev"
+var commit = "sha"
 
 func main() {
+	cmd.CommitSHA = commit
 	cmd.Build = version
 	cmd.Execute()
 }
