@@ -1,14 +1,18 @@
 import React from 'react';
 import { NoSsr, Popper, Paper } from '@material-ui/core';
-import dynamic from 'next/dynamic'
-const ReactCountdownClock = dynamic(() => import('react-countdown-clock'), {
-  ssr: false
-})
+
+let ReactCountdownClock;
+if (typeof window !== 'undefined') { 
+  ReactCountdownClock = require('react-countdown-clock');
+}
 
 class LoadTestTimerDialog extends React.Component {
 
   render() {
       const {countDownComplete, t, container, open} = this.props;
+      if (!open) {
+        return '';
+      }
       let tNum = 0, dur;
       try {
         tNum = parseInt(t.substring(0, t.length - 1))
@@ -32,28 +36,36 @@ class LoadTestTimerDialog extends React.Component {
           open={open}
           // onClose={this.handleClose}
         > */}
-        <div id="anc1"></div>
+        {/* <div id="anc1"></div>
         <Popper open={open} anchorEl={() => document.querySelector('#anc1')}
            placement='bottom' 
             modifiers={{
               flip: {
                 enabled: false,
               },
-            }}>
+            }}> */}
                 {/* <Paper> */}
                   {/* <ClickAwayListener onClickAway={this.handleClose}></ClickAwayListener> */}
 
           {/* <MenuItem onClick={this.handleClose}>Profile</MenuItem>
           <MenuItem onClick={this.handleClose}>My account</MenuItem>
           <MenuItem onClick={this.handleClose}>Logout</MenuItem> */}
+
+          <div style={{
+            marginLeft: 'auto',
+            marginRight: 'auto',
+            width: '400px',
+            // height: '400',
+          }}>
           <ReactCountdownClock seconds={dur}
                         color="#667C89"
                         alpha={0.9}
                         size={400}
-                        onComplete={countDownComplete} 
+                        onComplete={countDownComplete}
                         />
+          </div>
                         {/* </Paper> */}
-                        </Popper>
+                        {/* </Popper> */}
         {/* </Menu> */}
         
         {/* <Dialog onClose={this.handleTimerDialogClose} 

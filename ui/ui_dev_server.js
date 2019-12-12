@@ -13,6 +13,14 @@ var httpProxy = require('http-proxy');
 
 var proxy = httpProxy.createProxyServer({});
 
+proxy.on('error', function (err, req, res) {
+  res.writeHead(500, {
+    'Content-Type': 'text/plain'
+  });
+  res.end('Unexpected issue.');
+});
+
+
 app.prepare().then(() => {
   createServer((req, res) => {
     const { pathname } = parse(req.url, true)

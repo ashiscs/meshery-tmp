@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gofrs/uuid"
+	"github.com/gorilla/sessions"
 	"github.com/layer5io/meshery/meshes"
 	"github.com/layer5io/meshery/models"
 	"github.com/pkg/errors"
@@ -24,14 +25,8 @@ func (h *Handler) GetAllAdaptersHandler(w http.ResponseWriter, req *http.Request
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	_, err := h.config.SessionStore.Get(req, h.config.SessionName)
-	if err != nil {
-		logrus.Errorf("Error getting session: %v.", err)
-		http.Error(w, "Unable to get session.", http.StatusUnauthorized)
-		return
-	}
 
-	err = json.NewEncoder(w).Encode(h.config.AdapterTracker.GetAdapters(req.Context()))
+	err := json.NewEncoder(w).Encode(h.config.AdapterTracker.GetAdapters(req.Context()))
 	if err != nil {
 		logrus.Errorf("Error marshalling data: %v.", err)
 		http.Error(w, "Unable to retrieve the requested data.", http.StatusInternalServerError)
@@ -40,20 +35,7 @@ func (h *Handler) GetAllAdaptersHandler(w http.ResponseWriter, req *http.Request
 }
 
 // MeshAdapterConfigHandler is used to persist adapter config
-func (h *Handler) MeshAdapterConfigHandler(w http.ResponseWriter, req *http.Request) {
-	session, err := h.config.SessionStore.Get(req, h.config.SessionName)
-	if err != nil {
-		logrus.Errorf("Error getting session: %v.", err)
-		http.Error(w, "Unable to get session.", http.StatusUnauthorized)
-		return
-	}
-
-	var user *models.User
-	user, _ = session.Values["user"].(*models.User)
-
-	// h.config.SessionPersister.Lock(user.UserID)
-	// defer h.config.SessionPersister.Unlock(user.UserID)
-
+func (h *Handler) MeshAdapterConfigHandler(w http.ResponseWriter, req *http.Request, session *sessions.Session, user *models.User) {
 	sessObj, err := h.config.SessionPersister.Read(user.UserID)
 	if err != nil {
 		logrus.Warn("Unable to read session from the session persister. Starting a new session.")
@@ -74,7 +56,7 @@ func (h *Handler) MeshAdapterConfigHandler(w http.ResponseWriter, req *http.Requ
 
 		logrus.Debugf("meshLocationURL: %s", meshLocationURL)
 		if strings.TrimSpace(meshLocationURL) == "" {
-			err := errors.New("meshLocationURL cannot be empty to add an adapter.")
+			err := errors.New("meshLocationURL cannot be empty to add an adapter")
 			logrus.Error(err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -143,7 +125,9 @@ func (h *Handler) addAdapter(ctx context.Context, meshAdapters []*models.Adapter
 		// http.Error(w, "Unable to connect to the Mesh adapter using the given config, please try again", http.StatusInternalServerError)
 		return nil, err
 	}
-	defer mClient.Close()
+	defer func() {
+		_ = mClient.Close()
+	}()
 	respOps, err := mClient.MClient.SupportedOperations(ctx, &meshes.SupportedOperationsRequest{})
 	if err != nil {
 		logrus.Errorf("Error getting operations for the mesh: %v.", err)
@@ -209,23 +193,11 @@ func (h *Handler) deleteAdapter(meshAdapters []*models.Adapter, w http.ResponseW
 }
 
 // MeshOpsHandler is used to send operations to the adapters
-func (h *Handler) MeshOpsHandler(w http.ResponseWriter, req *http.Request) {
+func (h *Handler) MeshOpsHandler(w http.ResponseWriter, req *http.Request, session *sessions.Session, user *models.User) {
 	if req.Method != http.MethodPost {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	session, err := h.config.SessionStore.Get(req, h.config.SessionName)
-	if err != nil {
-		logrus.Error("Unable to get session data.")
-		http.Error(w, "Unable to get user data.", http.StatusUnauthorized)
-		return
-	}
-
-	var user *models.User
-	user, _ = session.Values["user"].(*models.User)
-
-	// h.config.SessionPersister.Lock(user.UserID)
-	// defer h.config.SessionPersister.Unlock(user.UserID)
 
 	sessObj, err := h.config.SessionPersister.Read(user.UserID)
 	if err != nil {
@@ -277,9 +249,12 @@ func (h *Handler) MeshOpsHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Unable to create a mesh client.", http.StatusBadRequest)
 		return
 	}
-	defer mClient.Close()
+	defer func() {
+		_ = mClient.Close()
+	}()
 
-	operationId, err := uuid.NewV4()
+	operationID, err := uuid.NewV4()
+
 	if err != nil {
 		logrus.Errorf("Error generating an operation id: %v.", err)
 		http.Error(w, "Error generating an operation id.", http.StatusInternalServerError)
@@ -287,7 +262,7 @@ func (h *Handler) MeshOpsHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	_, err = mClient.MClient.ApplyOperation(req.Context(), &meshes.ApplyRuleRequest{
-		OperationId: operationId.String(),
+		OperationId: operationID.String(),
 		OpName:      opName,
 		Username:    user.UserID,
 		Namespace:   namespace,
@@ -299,24 +274,15 @@ func (h *Handler) MeshOpsHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "There was an error applying the change.", http.StatusInternalServerError)
 		return
 	}
-	w.Write([]byte("{}"))
+	_, _ = w.Write([]byte("{}"))
 }
 
 // AdapterPingHandler is used to ping a given adapter
-func (h *Handler) AdapterPingHandler(w http.ResponseWriter, req *http.Request) {
+func (h *Handler) AdapterPingHandler(w http.ResponseWriter, req *http.Request, session *sessions.Session, user *models.User) {
 	if req.Method != http.MethodGet {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	session, err := h.config.SessionStore.Get(req, h.config.SessionName)
-	if err != nil {
-		logrus.Error("Unable to get session data.")
-		http.Error(w, "Unable to get user data.", http.StatusUnauthorized)
-		return
-	}
-
-	var user *models.User
-	user, _ = session.Values["user"].(*models.User)
 
 	sessObj, err := h.config.SessionPersister.Read(user.UserID)
 	if err != nil {
@@ -361,7 +327,9 @@ func (h *Handler) AdapterPingHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Adapter could not be pinged.", http.StatusBadRequest)
 		return
 	}
-	defer mClient.Close()
+	defer func() {
+		_ = mClient.Close()
+	}()
 
 	_, err = mClient.MClient.MeshName(req.Context(), &meshes.MeshNameRequest{})
 	if err != nil {
@@ -370,5 +338,5 @@ func (h *Handler) AdapterPingHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Adapter could not be pinged.", http.StatusInternalServerError)
 		return
 	}
-	w.Write([]byte("{}"))
+	_, _ = w.Write([]byte("{}"))
 }

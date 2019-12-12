@@ -283,6 +283,7 @@ class GrafanaCustomChart extends Component {
           break;
         case 'singlestat':
           this.panelType = props.panel.type ==='singlestat' && props.panel.sparkline && props.panel.sparkline.show === true?'sparkline':'gauge';
+          // this.panelType = props.panel.type ==='singlestat' && props.panel.sparkline ? 'sparkline':'gauge';
           break;
       }
       
@@ -291,6 +292,7 @@ class GrafanaCustomChart extends Component {
         xAxis: [],
         chartData: [],
         error: '',
+        errorCount: 0,
       };
     }
 
@@ -472,7 +474,7 @@ class GrafanaCustomChart extends Component {
           } else {
             self.createOptions(xAxis, chartData, groups);
           }
-          self.setState({xAxis, chartData, error:''});
+          self.setState({xAxis, chartData, error:'', errorCount: 0});
         }
       };
       if(panelData && panelData[expr]){
@@ -528,7 +530,8 @@ class GrafanaCustomChart extends Component {
       const {panel, board, inDialog} = this.props;
       const self = this;
 
-      const showAxis = panel.type ==='singlestat' && panel.sparkline && panel.sparkline.show === true?false:true;
+      // const showAxis = panel.type ==='singlestat' && panel.sparkline && panel.sparkline.show === true?false:true;
+      const showAxis = panel.type ==='singlestat' && panel.sparkline ?false:true;
 
       const xAxes = {
         type: 'timeseries',
@@ -735,7 +738,7 @@ class GrafanaCustomChart extends Component {
     handleError = error => {
       const self = this;
       this.props.updateProgress({showProgress: false});
-      this.setState({error: error.message && error.message !== ''?error.message:(error !== ''?error:'')});
+      this.setState({error: error.message && error.message !== ''?error.message:(error !== ''?error:''), errorCount: self.state.errorCount+1});
     }
     
     render() {
@@ -749,9 +752,15 @@ class GrafanaCustomChart extends Component {
       // if(chartData.datasets.length === filteredData.length){
       //   finalChartData = chartData;
       // }
+      
       const { classes, board, panel, inDialog, handleChartDialogOpen, panelData } = this.props;
-      const {error, chartData, options} = this.state;
+      const {error, errorCount, chartData, options} = this.state;
       let self = this;
+      
+      if(errorCount > 3 && typeof self.interval !== 'undefined'){
+        clearInterval(self.interval); // clearing the interval to prevent further calls to get chart data
+      }
+
       let iconComponent = (<IconButton
           key="chartDialog"
           aria-label="Open chart in a dialog"

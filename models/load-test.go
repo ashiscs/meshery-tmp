@@ -6,6 +6,17 @@ import (
 	"github.com/gofrs/uuid"
 )
 
+// LoadGenerator - represents the load generator type
+type LoadGenerator string
+
+const (
+	// FortioLG - represents the Fortio load generator
+	FortioLG LoadGenerator = "fortio"
+
+	// Wrk2LG - represents the wrk2 load generator
+	Wrk2LG LoadGenerator = "wrk2"
+)
+
 // LoadTestOptions represents the load test options
 type LoadTestOptions struct {
 	Name string
@@ -18,6 +29,8 @@ type LoadTestOptions struct {
 	IsInsecure bool
 	Duration   time.Duration
 
+	LoadGenerator LoadGenerator
+
 	Cert, Key, CACert string
 
 	AllowInitialErrors bool
@@ -28,6 +41,27 @@ type LoadTestOptions struct {
 	GRPCHealthSvc    string
 	GRPCDoPing       bool
 	GRPCPingDelay    time.Duration
+}
+
+// LoadTestStatus - used for representing load test status
+type LoadTestStatus string
+
+const (
+	// LoadTestError - respresents an error status
+	LoadTestError LoadTestStatus = "error"
+
+	// LoadTestInfo - represents a info status
+	LoadTestInfo LoadTestStatus = "info"
+
+	// LoadTestSuccess - represents a success status
+	LoadTestSuccess LoadTestStatus = "success"
+)
+
+// LoadTestResponse - used to bundle the response with status to the client
+type LoadTestResponse struct {
+	Status  LoadTestStatus `json:"status,omitempty"`
+	Message string         `json:"message,omitempty"`
+	Result  *MesheryResult `json:"result,omitempty"`
 }
 
 // MesheryResult - represents the results from Meshery test run to be shipped

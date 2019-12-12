@@ -4,8 +4,13 @@ import Button from '@material-ui/core/Button';
 import { withStyles } from '@material-ui/core/styles';
 import Grid from '@material-ui/core/Grid';
 import { NoSsr,  FormGroup, InputAdornment, Chip, IconButton, MenuItem, FormControlLabel, Switch, Tooltip } from '@material-ui/core';
+import List from '@material-ui/core/List';
+import ListItem from '@material-ui/core/ListItem';
+import ListItemIcon from '@material-ui/core/ListItemIcon';
+import ListItemText from '@material-ui/core/ListItemText';
 import TextField from '@material-ui/core/TextField';
 import dataFetch from '../lib/data-fetch';
+import Divider from '@material-ui/core/Divider';
 import blue from '@material-ui/core/colors/blue';
 import CloudUploadIcon from '@material-ui/icons/CloudUpload';
 import { updateK8SConfig, updateProgress } from '../lib/store';
@@ -21,7 +26,7 @@ const styles = theme => ({
   },
   buttons: {
     display: 'flex',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
   },
   button: {
     marginTop: theme.spacing(3),
@@ -65,6 +70,24 @@ const styles = theme => ({
   },
   icon: {
     width: theme.spacing(2.5),
+  },
+  configure: {
+    display:'inline-block',
+    width:'48%',
+  },
+  vertical: {
+    display:'inline-block',
+    height:140,
+    marginBottom:-40,
+  },
+  buttonconfig: {
+    display:'inline-block',
+    width:'48%',
+  },
+  configHeading: {
+  	display: 'inline-block',
+    width: '48%',
+    textAlign: 'center',
   },
 });
 
@@ -231,7 +254,7 @@ class MeshConfigComponent extends React.Component {
 //   }
 
   handleReconfigure = () => {
-	let self = this;
+  let self = this;
     dataFetch('/api/k8sconfig', { 
       credentials: 'same-origin',
       method: 'DELETE',
@@ -284,6 +307,16 @@ class MeshConfigComponent extends React.Component {
               icon={<img src="/static/img/kubernetes.svg" className={classes.icon} />} 
               variant="outlined" />
       );
+      let lst = (
+        <List>
+        <ListItem>
+          <ListItemText primary="Context Name" secondary={inClusterConfig?'Using In Cluster Config': contextName } />
+        </ListItem>
+        <ListItem>
+          <ListItemText primary="Server Name" secondary={inClusterConfig?'In Cluster Server':(configuredServer?configuredServer:'')} />
+        </ListItem>
+      </List>
+      );
       if(configuredServer){
         chp = (
           <Tooltip title={`Server: ${configuredServer}`}>
@@ -292,8 +325,26 @@ class MeshConfigComponent extends React.Component {
         );
       }
       showConfigured = (
-        <div className={classes.alignRight}>
+        <div>
           {chp}
+          {lst}
+        </div>
+      )
+    }
+    if(!clusterConfigured){
+      let lst = (
+        <List>
+        <ListItem>
+          <ListItemText primary="Context Name" secondary="Not Configured" />
+        </ListItem>
+        <ListItem>
+          <ListItemText primary="Server Name" secondary="Not Configured" />
+        </ListItem>
+      </List>
+      );
+      showConfigured = (
+        <div>
+          {lst}
         </div>
       )
     }
@@ -302,113 +353,39 @@ class MeshConfigComponent extends React.Component {
       return (
     <NoSsr>
     <div className={classes.root}>
-    
-    {showConfigured}
-    
-    <Grid container spacing={1} alignItems="flex-end">
-      <Grid item xs={12} className={classes.alignCenter}>
-      <FormControlLabel
-            hidden={true} // hiding this component for now
-            key="inCluster"
-            control={
-              <Switch
-                    hidden={true} // hiding this component for now
-                    checked={inClusterConfigForm}
-                    onChange={this.handleChange('inClusterConfigForm')}
-                    color="default"
-                    //   value="checkedA"
-                    // classes={{
-                    //     switchBase: classes.colorSwitchBase,
-                    //     checked: classes.colorChecked,
-                    //     bar: classes.colorBar,
-                    // }}
-                />
-                }
-            labelPlacement="end"
-            label="Use in-cluster Kubernetes config"
-      />
-      </Grid>
-      <Grid item xs={12} sm={6} hidden={inClusterConfigForm === true}>
-      <FormGroup row>
-        <input
-            className={classes.input}
-            id="k8sfile"
-            type="file"
-            // value={k8sfile}
-            value={k8sfileElementVal}
-            onChange={this.handleChange('k8sfile')}
-            disabled={inClusterConfigForm === true}
-            className={classes.fileInputStyle}
-        />
-            <TextField
-                id="k8sfileLabelText"
-                name="k8sfileLabelText"
-                className={classes.fileLabelText}
-                label="Upload config"
-                variant="outlined"
-                fullWidth
-                value={k8sfile.replace('C:\\fakepath\\', '')}
-                onClick={e => document.querySelector('#k8sfile').click()}
-                margin="normal"
-                InputProps={{
-                    readOnly: true,
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <CloudUploadIcon />
-                      </InputAdornment>
-                    ),
-                  }}
-                disabled
-                />
-        </FormGroup>
-      </Grid>
-      <Grid item xs={12} sm={6} hidden={inClusterConfigForm === true}>
-        <TextField
-          select
-          id="contextName"
-          name="contextName"
-          label="Context Name"
-          fullWidth
-          value={contextNameForForm}
-          margin="normal"
-          variant="outlined"
-          disabled={inClusterConfigForm === true}
-          onChange={this.handleChange('contextNameForForm')}
-        >
-          {contextsFromFile && contextsFromFile.map((ct) => (
-              <MenuItem key={'ct_---_'+ct.contextName} value={ct.contextName}>{ct.contextName}{ct.currentContext?' (default)':''}</MenuItem>
-          ))}
-        </TextField>
-      </Grid>
-    </Grid>
-    <React.Fragment>
-      <div className={classes.buttons}>
-        <Button
-          type="submit"
-          variant="contained"
-          color="primary"
-          size="large"
-          onClick={this.handleSubmit}
-          className={classes.button}
-        >
-         Submit
-        </Button>
-      </div>
-    </React.Fragment>
+	    <div className={classes.configHeading}>
+	    	<h4>
+	    		Current Configuration Details
+	    	</h4>
+	    </div>
+	    <div className={classes.configHeading}>
+	    	<h4>
+	    		Change Configuration...
+	    	</h4>
+	    </div>
+	    
+		<div className={classes.configure}>
+		  {showConfigured}
+		</div>
+		<Divider className={classes.vertical} orientation="vertical" />
+		<div className={classes.buttonconfig}>
+		  <div className={classes.buttons}>
+		  <Button
+		    type="submit"
+		    variant="contained"
+		    color="primary"
+		    size="large"
+		    onClick={() => window.location.reload(false)}
+		    className={classes.button}
+		  >
+		   Discover Cluster
+		  </Button>
+		</div>
+		</div>
     </div>
-  
-  {/* <LoadTestTimerDialog open={timerDialogOpen} 
-    t={t}
-    onClose={this.handleTimerDialogClose} 
-    countDownComplete={this.handleTimerDialogClose} />
-
-  <Typography variant="h6" gutterBottom className={classes.chartTitle}>
-      Results
-    </Typography>
-  <MesheryChart data={result} />     */}
     </NoSsr>
   );
-    }
+  }
 
   render() {
     const { reconfigureCluster } = this.state;

@@ -267,8 +267,8 @@ class MesheryAdapterPlayComponent extends React.Component {
       self.setState({menuState, [dlg]: false});
 
       if (typeof result !== 'undefined'){
-        self.props.enqueueSnackbar('Operation submitted successfully!', {
-          variant: 'success',
+        self.props.enqueueSnackbar('Operation executing...', {
+          variant: 'info',
           autoHideDuration: 2000,
           action: (key) => (
             <IconButton
@@ -479,7 +479,7 @@ class MesheryAdapterPlayComponent extends React.Component {
 
       case 4:
         content = 'Custom Config';
-        description = 'For the brave of hearts who want to speak YAML to your cluster directly';
+        description = 'Customize the configuration of your service mesh';
         break;
     }
     return (

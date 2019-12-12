@@ -6,25 +6,23 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/gorilla/sessions"
+	"github.com/layer5io/meshery/models"
 	"github.com/sirupsen/logrus"
 )
 
 // FetchResultsHandler fetchs pages of results from SaaS and presents it to the UI
-func (h *Handler) FetchResultsHandler(w http.ResponseWriter, req *http.Request) {
+func (h *Handler) FetchResultsHandler(w http.ResponseWriter, req *http.Request, session *sessions.Session, user *models.User) {
 	if req.Method != http.MethodGet {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	// ensuring session is intact before running load test
-	session, err := h.config.SessionStore.Get(req, h.config.SessionName)
-	if err != nil {
-		logrus.Errorf("Error: unable to get session: %v", err)
-		http.Error(w, "unable to get session", http.StatusUnauthorized)
-		return
-	}
+
 	tokenVal, _ := session.Values[h.config.SaaSTokenName].(string)
 
-	err = req.ParseForm()
+	// TODO: may be force login if token not found?????
+
+	err := req.ParseForm()
 	if err != nil {
 		logrus.Errorf("Error: unable to parse form: %v", err)
 		http.Error(w, "unable to process the received data", http.StatusForbidden)
@@ -37,7 +35,7 @@ func (h *Handler) FetchResultsHandler(w http.ResponseWriter, req *http.Request) 
 		http.Error(w, "error while getting load test results", http.StatusInternalServerError)
 		return
 	}
-	w.Write(bdr)
+	_, _ = w.Write(bdr)
 }
 
 func (h *Handler) getResultsFromSaaS(tokenKey, tokenVal, page, pageSize, search, order string) ([]byte, error) {
@@ -72,7 +70,9 @@ func (h *Handler) getResultsFromSaaS(tokenKey, tokenVal, page, pageSize, search,
 		logrus.Errorf("unable to get results: %v", err)
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	bdr, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		logrus.Errorf("unable to read response body: %v", err)

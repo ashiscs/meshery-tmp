@@ -152,7 +152,7 @@ class DashboardComponent extends React.Component {
             });
             this.setState({availableAdapters: options});
           }
-        }, self.handleError("Unable to fetch available adapters"));
+        }, self.handleError("Unable to fetch list of adapters."));
       }
 
   handleError = (msg) => error => {
@@ -170,7 +170,7 @@ class DashboardComponent extends React.Component {
               <CloseIcon />
         </IconButton>
       ),
-      autoHideDuration: 8000,
+      autoHideDuration: 7000,
     });
   }
 
@@ -178,7 +178,7 @@ class DashboardComponent extends React.Component {
     return false;
   }
 
-  handleClick = (adapterLoc) => () => {
+  handleAdapterClick = (adapterLoc) => () => {
     // const { meshAdapters } = this.state;
     this.props.updateProgress({showProgress: true});
     let self = this;
@@ -188,7 +188,7 @@ class DashboardComponent extends React.Component {
     }, result => {
       this.props.updateProgress({showProgress: false});
       if (typeof result !== 'undefined'){
-        this.props.enqueueSnackbar('Adapter was successfully pinged!', {
+        this.props.enqueueSnackbar('Adapter successfully pinged!', {
           variant: 'success',
           autoHideDuration: 2000,
           action: (key) => (
@@ -203,7 +203,34 @@ class DashboardComponent extends React.Component {
           ),
         });
       }
-    }, self.handleError("error"));
+    }, self.handleError("Could not ping adapter."));
+  }
+
+  handleKubernetesClick = () => {
+    this.props.updateProgress({showProgress: true});
+    let self = this;
+    dataFetch(`/api/k8sconfig/ping`, { 
+      credentials: 'same-origin',
+      credentials: 'include',
+    }, result => {
+      this.props.updateProgress({showProgress: false});
+      if (typeof result !== 'undefined'){
+        this.props.enqueueSnackbar('Kubernetes successfully pinged!', {
+          variant: 'success',
+          autoHideDuration: 2000,
+          action: (key) => (
+            <IconButton
+                  key="close"
+                  aria-label="Close"
+                  color="inherit"
+                  onClick={() => self.props.closeSnackbar(key) }
+                >
+                  <CloseIcon />
+            </IconButton>
+          ),
+        });
+      }
+    }, self.handleError("Could not ping Kubernetes."));
   }
 
   showCard(title, content) {
@@ -228,7 +255,7 @@ class DashboardComponent extends React.Component {
     const { classes } = this.props;
     const { inClusterConfig, contextName, clusterConfigured, configuredServer, meshAdapters, availableAdapters, grafana, prometheus } = this.state;
     const self = this;
-    let showConfigured = 'Kubernetes is not connected at the moment.';
+    let showConfigured = 'Not connected to Kubernetes.';
     if (clusterConfigured) {
 
       let chp = (
@@ -237,6 +264,7 @@ class DashboardComponent extends React.Component {
               label={inClusterConfig?'Using In Cluster Config': contextName}
               // onDelete={self.handleDelete}
               // deleteIcon={<DoneIcon />}
+              onClick={self.handleKubernetesClick}
               icon={<img src="/static/img/kubernetes.svg" className={classes.icon} />} 
               className={classes.chip}
               key='k8s-key'
@@ -258,7 +286,7 @@ class DashboardComponent extends React.Component {
       )
     }
 
-    let showAdapters = 'No adapters are configured at the moment.';
+    let showAdapters = 'No adapters configured.';
     if (availableAdapters.length > 0) {
 
       availableAdapters.sort((a1, a2) => (a1.value < a2.value?-1:(a1.value > a2.value?1:0)));
@@ -288,10 +316,14 @@ class DashboardComponent extends React.Component {
                             image = "/static/img/consul.svg";
                             logoIcon = (<img src={image} className={classes.icon} />);
                             break;
-                        case 'nsm':
+                        case 'network service mesh':
                             image = "/static/img/nsm.svg";
                             logoIcon = (<img src={image} className={classes.icon} />);
                             break;
+                        case 'octarine':
+                          image = "/static/img/octarine.svg";
+                          logoIcon = (<img src={image} className={classes.icon} />);
+                          break;
                         }
                     }
                 });
@@ -299,13 +331,18 @@ class DashboardComponent extends React.Component {
 
                 
                 return (
-                <Tooltip title={isDisabled?"This adapter is inactive":`${adapterType.toUpperCase()} adapter`}>
+                <Tooltip title={isDisabled?"This adapter is inactive":
+                   `${adapterType
+                       .toLowerCase()
+                       .split(' ')
+                       .map((s) => s.charAt(0).toUpperCase() + s.substring(1))
+                       .join(' ')} adapter on port ${aa.label.split(':')[1]}`}>
                   <Chip 
-                  label={aa.label}
+                  label={aa.label.split(':')[0]}
                   // onDelete={self.handleDelete(ind)} 
                   // onDelete={!isDisabled?self.handleDelete:null}
                   // deleteIcon={!isDisabled?<DoneIcon />:null}
-                  onClick={self.handleClick(aa.value)}
+                  onClick={self.handleAdapterClick(aa.value)}
                   icon={logoIcon}
                   className={classes.chip}
                   key={`adapters-${ia}`}
@@ -318,7 +355,7 @@ class DashboardComponent extends React.Component {
 
     }
 
-    let showGrafana = 'Grafana is not connected at the moment.';
+    let showGrafana = 'Not connected to Grafana.';
     if(grafana && grafana.grafanaURL&& grafana.grafanaURL !== ''){
       showGrafana = (
         <Chip 
@@ -332,7 +369,7 @@ class DashboardComponent extends React.Component {
       );
     }
 
-    let showPrometheus = 'Prometheus is not connected at the moment.';
+    let showPrometheus = 'Not connected to Prometheus.';
     if(prometheus && prometheus.prometheusURL&& prometheus.prometheusURL !== ''){
       showPrometheus = (
         <Chip 

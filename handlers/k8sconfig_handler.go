@@ -11,30 +11,19 @@ import (
 
 	"os"
 
+	"github.com/gorilla/sessions"
+	"github.com/layer5io/meshery/helpers"
 	"github.com/layer5io/meshery/models"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
 // K8SConfigHandler is used for persisting kubernetes config and context info
-func (h *Handler) K8SConfigHandler(w http.ResponseWriter, req *http.Request) {
+func (h *Handler) K8SConfigHandler(w http.ResponseWriter, req *http.Request, session *sessions.Session, user *models.User) {
 	if req.Method != http.MethodPost && req.Method != http.MethodDelete {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-
-	session, err := h.config.SessionStore.Get(req, h.config.SessionName)
-	if err != nil {
-		logrus.Errorf("error getting session: %v", err)
-		http.Error(w, "unable to get session", http.StatusUnauthorized)
-		return
-	}
-
-	var user *models.User
-	user, _ = session.Values["user"].(*models.User)
-
-	// h.config.SessionPersister.Lock(user.UserID)
-	// defer h.config.SessionPersister.Unlock(user.UserID)
 
 	sessObj, err := h.config.SessionPersister.Read(user.UserID)
 	if err != nil {
@@ -56,7 +45,7 @@ func (h *Handler) K8SConfigHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) addK8SConfig(user *models.User, sessObj *models.Session, w http.ResponseWriter, req *http.Request) {
-	req.ParseMultipartForm(1 << 20)
+	_ = req.ParseMultipartForm(1 << 20)
 
 	inClusterConfig := req.FormValue("inClusterConfig")
 	logrus.Debugf("inClusterConfig: %s", inClusterConfig)
@@ -74,7 +63,9 @@ func (h *Handler) addK8SConfig(user *models.User, sessObj *models.Session, w htt
 			http.Error(w, "Unable to get kubernetes config file", http.StatusBadRequest)
 			return
 		}
-		defer k8sfile.Close()
+		defer func() {
+			_ = k8sfile.Close()
+		}()
 		k8sConfigBytes, err = ioutil.ReadAll(k8sfile)
 		if err != nil {
 			logrus.Errorf("error reading config: %v", err)
@@ -114,8 +105,21 @@ func (h *Handler) addK8SConfig(user *models.User, sessObj *models.Session, w htt
 	}
 	kc.ClusterConfigured = true
 	sessObj.K8SConfig = kc
-	err := h.config.SessionPersister.Write(user.UserID, sessObj)
+
+	var err error
+	sessObj.K8SConfig.ServerVersion, err = helpers.FetchKubernetesVersion(kc.Config, kc.ContextName)
 	if err != nil {
+		http.Error(w, "unable to ping the kubernetes server", http.StatusInternalServerError)
+		return
+	}
+
+	sessObj.K8SConfig.Nodes, err = helpers.FetchKubernetesNodes(kc.Config, kc.ContextName)
+	if err != nil {
+		http.Error(w, "unable to fetch nodes metadata from the kubernetes server", http.StatusInternalServerError)
+		return
+	}
+
+	if err = h.config.SessionPersister.Write(user.UserID, sessObj); err != nil {
 		logrus.Errorf("unable to save session: %v", err)
 		http.Error(w, "unable to save session", http.StatusInternalServerError)
 		return
@@ -123,8 +127,7 @@ func (h *Handler) addK8SConfig(user *models.User, sessObj *models.Session, w htt
 
 	kc.Config = nil
 
-	err = json.NewEncoder(w).Encode(kc)
-	if err != nil {
+	if err = json.NewEncoder(w).Encode(kc); err != nil {
 		logrus.Errorf("error marshalling data: %v", err)
 		http.Error(w, "unable to retrieve the requested data", http.StatusInternalServerError)
 		return
@@ -139,7 +142,7 @@ func (h *Handler) deleteK8SConfig(user *models.User, sessObj *models.Session, w 
 		http.Error(w, "unable to save session", http.StatusInternalServerError)
 		return
 	}
-	w.Write([]byte("{}"))
+	_, _ = w.Write([]byte("{}"))
 }
 
 // GetContextsFromK8SConfig returns the context list for a given k8s config
@@ -148,7 +151,7 @@ func (h *Handler) GetContextsFromK8SConfig(w http.ResponseWriter, req *http.Requ
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	req.ParseMultipartForm(1 << 20)
+	_ = req.ParseMultipartForm(1 << 20)
 	var k8sConfigBytes []byte
 
 	k8sfile, _, err := req.FormFile("k8sfile")
@@ -157,7 +160,9 @@ func (h *Handler) GetContextsFromK8SConfig(w http.ResponseWriter, req *http.Requ
 		http.Error(w, "Unable to get kubernetes config file", http.StatusBadRequest)
 		return
 	}
-	defer k8sfile.Close()
+	defer func() {
+		_ = k8sfile.Close()
+	}()
 	k8sConfigBytes, err = ioutil.ReadAll(k8sfile)
 	if err != nil {
 		logrus.Errorf("error reading config: %v", err)
@@ -193,7 +198,7 @@ func (h *Handler) GetContextsFromK8SConfig(w http.ResponseWriter, req *http.Requ
 func (h *Handler) loadInClusterK8SConfig() (*models.K8SConfig, error) {
 	// try to load k8s config from incluster config
 	_, err := rest.InClusterConfig()
-	if err == nil {
+	if err != nil {
 		err = errors.Wrap(err, "error parsing incluster k8s config")
 		logrus.Error(err)
 		return nil, err
@@ -260,4 +265,68 @@ func (h *Handler) checkIfK8SConfigExistsOrElseLoadFromDiskOrK8S(user *models.Use
 		}
 	}
 	return nil
+}
+
+// KubernetesPingHandler - fetches server version to simulate ping
+func (h *Handler) KubernetesPingHandler(w http.ResponseWriter, req *http.Request, session *sessions.Session, user *models.User) {
+	sessObj, err := h.config.SessionPersister.Read(user.UserID)
+	if err != nil {
+		logrus.Warn("Unable to read session from the session persister. Starting a new session.")
+	}
+
+	if sessObj == nil {
+		sessObj = &models.Session{}
+	}
+	if sessObj.K8SConfig == nil {
+		_, _ = w.Write([]byte("[]"))
+		return
+	}
+
+	version, err := helpers.FetchKubernetesVersion(sessObj.K8SConfig.Config, sessObj.K8SConfig.ContextName)
+	if err != nil {
+		err = errors.Wrap(err, "unable to ping kubernetes")
+		logrus.Error(err)
+		http.Error(w, "unable to ping kubernetes", http.StatusInternalServerError)
+		return
+	}
+	if err = json.NewEncoder(w).Encode(map[string]string{
+		"server_version": version,
+	}); err != nil {
+		err = errors.Wrap(err, "unable to marshal the payload")
+		logrus.Error(err)
+		http.Error(w, "unable to marshal the payload", http.StatusInternalServerError)
+		return
+	}
+}
+
+// InstalledMeshesHandler - scans and tries to find out the installed meshes
+func (h *Handler) InstalledMeshesHandler(w http.ResponseWriter, req *http.Request, session *sessions.Session, user *models.User) {
+	sessObj, err := h.config.SessionPersister.Read(user.UserID)
+	if err != nil {
+		logrus.Warn("Unable to read session from the session persister. Starting a new session.")
+	}
+
+	if sessObj == nil {
+		sessObj = &models.Session{}
+	}
+	if sessObj.K8SConfig == nil {
+
+		_, _ = w.Write([]byte("{}"))
+
+		return
+	}
+
+	installedMeshes, err := helpers.ScanKubernetes(sessObj.K8SConfig.Config, sessObj.K8SConfig.ContextName)
+	if err != nil {
+		err = errors.Wrap(err, "unable to scan kubernetes")
+		logrus.Error(err)
+		http.Error(w, "unable to scan kubernetes", http.StatusInternalServerError)
+		return
+	}
+	if err = json.NewEncoder(w).Encode(installedMeshes); err != nil {
+		err = errors.Wrap(err, "unable to marshal the payload")
+		logrus.Error(err)
+		http.Error(w, "unable to marshal the payload", http.StatusInternalServerError)
+		return
+	}
 }

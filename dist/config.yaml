@@ -1,0 +1,113 @@
+project_name: mesheryctl
+release:
+  github:
+    owner: layer5io
+    name: meshery-tmp
+  name_template: '{{.Tag}}'
+brews:
+- name: mesheryctl
+  commit_author:
+    name: goreleaserbot
+    email: goreleaser@carlosbecker.com
+  install: bin.install "mesheryctl"
+scoop:
+  name: mesheryctl
+  commit_author:
+    name: goreleaserbot
+    email: goreleaser@carlosbecker.com
+builds:
+- id: mesheryctl
+  goos:
+  - darwin
+  - linux
+  - freebsd
+  - windows
+  goarch:
+  - amd64
+  - "386"
+  goarm:
+  - "6"
+  targets:
+  - darwin_amd64
+  - darwin_386
+  - linux_amd64
+  - linux_386
+  - freebsd_amd64
+  - freebsd_386
+  - windows_amd64
+  - windows_386
+  main: ./mesheryctl/main.go
+  ldflags:
+  - -s -w -X main.version={{.Version}}
+  binary: mesheryctl
+  env:
+  - CGO_ENABLED=0
+  lang: go
+archives:
+- id: default
+  builds:
+  - mesheryctl
+  name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm
+    }}v{{ .Arm }}{{ end }}'
+  replacements:
+    "386": i386
+    amd64: x86_64
+    darwin: Darwin
+    linux: Linux
+    windows: Windows
+  format: tar.gz
+  format_overrides:
+  - goos: windows
+    format: zip
+  files:
+  - licence*
+  - LICENCE*
+  - license*
+  - LICENSE*
+  - readme*
+  - README*
+  - changelog*
+  - CHANGELOG*
+nfpms:
+- name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm
+    }}v{{ .Arm }}{{ end }}'
+  id: default
+  builds:
+  - mesheryctl
+  bindir: /usr/local/bin
+snapcrafts:
+- name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm
+    }}v{{ .Arm }}{{ end }}'
+  builds:
+  - mesheryctl
+snapshot:
+  name_template: '{{ .Tag }}-next'
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+changelog:
+  filters:
+    exclude:
+    - '^docs:'
+    - '^test:'
+  sort: asc
+dist: dist
+signs:
+- cmd: gpg
+  args:
+  - --output
+  - $signature
+  - --detach-sig
+  - $artifact
+  signature: ${artifact}.sig
+  artifacts: none
+env_files:
+  github_token: ~/.config/goreleaser/github_token
+  gitlab_token: ~/.config/goreleaser/gitlab_token
+before:
+  hooks:
+  - go mod tidy
+github_urls:
+  download: https://github.com
+gitlab_urls:
+  download: https://gitlab.com

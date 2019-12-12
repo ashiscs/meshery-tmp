@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"os"
+	"os/signal"
 	"path"
+	"time"
 
 	"github.com/layer5io/meshery/helpers"
 
@@ -59,9 +62,12 @@ func main() {
 	adapterTracker := helpers.NewAdaptersTracker(adapterURLs)
 	queryTracker := helpers.NewUUIDQueryTracker()
 
-	// fileSessionStore := sessions.NewFilesystemStore("", []byte(uuid.NewV4().Bytes())) // this is making us re-initiate login after every restart
-	fileSessionStore := sessions.NewFilesystemStore("", []byte("Meshery2019"))
-	fileSessionStore.MaxLength(0)
+	// Uncomment line below to generate a new UID and force the user to login every time Meshery is started.
+	// fileSessionStore := sessions.NewFilesystemStore("", []byte(uuid.NewV4().Bytes()))
+	// fileSessionStore := sessions.NewFilesystemStore("", []byte("Meshery"))
+	// fileSessionStore.MaxLength(0)
+
+	cookieSessionStore := sessions.NewCookieStore([]byte("Meshery"))
 
 	queueFactory := memqueue.NewFactory()
 	mainQueue := queueFactory.NewQueue(&taskq.QueueOptions{
@@ -69,10 +75,17 @@ func main() {
 	})
 
 	// sessionPersister := helpers.NewFileSessionPersister(viper.GetString("USER_DATA_FOLDER"))
-	sessionPersister, err := helpers.NewBadgerSessionPersister(viper.GetString("USER_DATA_FOLDER"))
+	// sessionPersister, err := helpers.NewBadgerSessionPersister(viper.GetString("USER_DATA_FOLDER"))
+	// if err != nil {
+	// 	logrus.Fatal(err)
+	// }
+
+	sessionPersister, err := helpers.NewBitCaskSessionPersister(viper.GetString("USER_DATA_FOLDER"))
 	if err != nil {
 		logrus.Fatal(err)
 	}
+
+	// sessionPersister, _ := helpers.NewMapSessionPersister()
 	defer sessionPersister.Close()
 
 	h := handlers.NewHandlerInstance(&models.HandlerConfig{
@@ -80,8 +93,9 @@ func main() {
 
 		RefCookieName: "meshery_ref",
 
-		SessionName:  "meshery",
-		SessionStore: fileSessionStore,
+		SessionName: "meshery",
+		// SessionStore: fileSessionStore,
+		SessionStore: cookieSessionStore,
 
 		SaaSTokenName: "meshery_saas",
 
@@ -93,6 +107,12 @@ func main() {
 		SessionPersister: sessionPersister,
 
 		KubeConfigFolder: viper.GetString("KUBECONFIG_FOLDER"),
+
+		GrafanaClient:         models.NewGrafanaClient(),
+		GrafanaClientForQuery: models.NewGrafanaClientWithHTTPClient(&http.Client{Timeout: time.Second}),
+
+		PrometheusClient:         models.NewPrometheusClient(),
+		PrometheusClientForQuery: models.NewPrometheusClientWithHTTPClient(&http.Client{Timeout: time.Second}),
 	})
 
 	port := viper.GetInt("PORT")
@@ -105,9 +125,15 @@ func main() {
 	// 	}
 	// }()
 
-	logrus.Infof("Starting Server listening on :%d", port)
-	if err := r.Run(); err != nil {
-		logrus.Fatalf("ListenAndServe Error: %v", err)
-	}
-	logrus.Info("thank you")
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	go func() {
+		logrus.Infof("Starting Server listening on :%d", port)
+		if err := r.Run(); err != nil {
+			logrus.Fatalf("ListenAndServe Error: %v", err)
+		}
+	}()
+	<-c
+	logrus.Info("Shutting down Meshery")
 }

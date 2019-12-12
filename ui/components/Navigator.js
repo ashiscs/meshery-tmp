@@ -16,12 +16,12 @@ import RemoveIcon from '@material-ui/icons/Remove';
 import Link from "next/link";
 import {connect} from "react-redux";
 import { bindActionCreators } from 'redux'
-import { updatepagepathandtitle } from '../lib/store';
+import { updatepagetitle } from '../lib/store';
 import NoSsr from '@material-ui/core/NoSsr';
 import Avatar from '@material-ui/core/Avatar';
 import { withRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTerminal, faTachometerAlt, faSignal, faExternalLinkAlt, faPollH } from '@fortawesome/free-solid-svg-icons';
+import { faTerminal, faTachometerAlt, faSignal, faExternalLinkAlt, faChevronCircleLeft, faPollH } from '@fortawesome/free-solid-svg-icons';
 
 const styles = theme => ({
   categoryHeader: {
@@ -50,6 +50,7 @@ const styles = theme => ({
   link: {
     display: 'inline-flex',
     width: '100%',
+    height: '30px',
   },
   itemActionable: {
     '&:hover': {
@@ -73,8 +74,16 @@ const styles = theme => ({
   mainLogo: {
     marginRight: theme.spacing(1),
     marginTop: theme.spacing(1),
-    width: 30,
-    height: 30,
+    marginLeft: theme.spacing(-1),
+    width: 40,
+    height: 40,
+    borderRadius: 'unset',
+  },
+  mainLogoText: {
+    marginLeft: theme.spacing(.5),
+    marginTop: theme.spacing(1),
+    width: 170,
+    height: '100%',
     borderRadius: 'unset',
   },
   community: {
@@ -105,6 +114,71 @@ const styles = theme => ({
   istioIcon: {
     width: theme.spacing(1.8),
   },
+  isHidden: {
+    opacity: 0,
+    transition: 'opacity 200ms ease-in-out'
+  },
+  isDisplayed: {
+    opacity: 1,
+    transition: 'opacity 200ms ease-in-out'
+  },
+  sidebarCollapsed: {
+    transition: theme.transitions.create('width', {
+      easing: theme.transitions.easing.sharp,
+      duration: theme.transitions.duration.leavingScreen,
+    }),
+    overflowX: 'hidden',
+    width: theme.spacing(7) + 1,
+  },
+  sidebarExpanded: {
+    width: '256px',
+    overflowX: 'hidden',
+    transition: theme.transitions.create('width', {
+      easing: theme.transitions.easing.sharp,
+      duration: theme.transitions.duration.enteringScreen,
+    }),
+  },
+  fixedSidebarFooter: {
+    display: 'none',
+    [theme.breakpoints.up('sm')]: {
+      display: 'flex',
+      'margin-top': 'auto',
+      'margin-bottom': '0.5rem'
+    },
+  },
+  collapseButtonWrapper: {
+    width: 'auto',
+    'margin-left': 'auto',
+    opacity: '0.7',
+    transition: 'opacity 200ms linear',
+    '&:hover': {
+      opacity: 1,
+      background: 'transparent'
+    },
+    '&:focus': {
+      opacity: 1,
+      background: 'transparent'
+    }
+  },
+  collapseButtonWrapperRotated: {
+    width: 'auto',
+    'margin-left': 'auto',
+    opacity: '0.7',
+    transition: 'opacity 200ms linear',
+    'transform':'rotate(180deg)',
+    '&:hover': {
+      opacity: 1,
+      background: 'transparent'
+    },
+    '&:focus': {
+      opacity: 1,
+      background: 'transparent'
+    }
+  },
+  noPadding: {
+    paddingLeft: '16px',
+    paddingRight: '16px'
+  }
 });
 
 const categories = [
@@ -149,6 +223,14 @@ const categories = [
     link: true,
     children: [
       {
+        id: 'Consul', 
+        // icon: <FontAwesomeIcon icon={faTachometerAlt} transform="shrink-2" fixedWidth />, 
+        href: "/management/consul", 
+        title: 'Consul',
+        link: false, 
+        show: true,
+      },
+      {
         id: 'Istio', 
         // icon: <FontAwesomeIcon icon={faTachometerAlt} transform="shrink-2" fixedWidth />, 
         href: "/management/istio", 
@@ -165,10 +247,18 @@ const categories = [
         show: true,
       },
       {
-        id: 'Consul', 
+        id: 'Network Service Mesh', 
         // icon: <FontAwesomeIcon icon={faTachometerAlt} transform="shrink-2" fixedWidth />, 
-        href: "/management/consul", 
-        title: 'Consul',
+        href: "/management/nsm", 
+        title: 'Network Service Mesh',
+        link: false, 
+        show: true,
+      },
+      {
+        id: 'Octarine', 
+        // icon: <FontAwesomeIcon icon={faTachometerAlt} transform="shrink-2" fixedWidth />, 
+        href: "/management/octarine", 
+        title: 'Octarine',
         link: false, 
         show: true,
       },
@@ -183,7 +273,7 @@ class Navigator extends React.Component {
       this.state = {
         path: '',
         meshAdapters,
-        mts: new Date(),
+        mts: new Date()
       };
       
     }
@@ -202,10 +292,16 @@ class Navigator extends React.Component {
       });
     }
 
-    static getDerivedStateFromProps(props, state) {
-      const { meshAdapters, meshAdaptersts } = props;
-      let path = (typeof window !== 'undefined' ? window.location.pathname + window.location.search : '');
+    // componentDidMount(){
+    //   console.log("navigator mounted")
+    // }
 
+    // componentDidUpdate(){
+    //   console.log("navigator mounted")
+    // }
+
+    static getDerivedStateFromProps(props, state) {
+      const { meshAdapters, meshAdaptersts, path } = props;
       const st = {};
       if(meshAdaptersts > state.mts) {
         st.meshAdapters = meshAdapters;
@@ -214,8 +310,8 @@ class Navigator extends React.Component {
 
       const fetchNestedPathAndTitle = (path, title, href, children) => {
         if (href === path) {
-            // console.log("updating path: "+path+" and title: "+title);
-            props.updatepagepathandtitle({path, title});
+            // console.log(`updating path: ${path} and title: ${title}`);
+            props.updatepagetitle({title});
             return;
         }
         if(children && children.length > 0){
@@ -224,9 +320,7 @@ class Navigator extends React.Component {
           });
         }
       }
-      if (path.lastIndexOf('/') > 0) {
-          path = path.substring(0, path.lastIndexOf('/'));
-      }
+
       categories.forEach(({title, href, children}) => {    
           fetchNestedPathAndTitle(path, title, href, children); 
       });
@@ -277,8 +371,12 @@ class Navigator extends React.Component {
           image = "/static/img/consul.svg";
           logoIcon = (<img src={image} className={classes.icon} />);
           break;
-        case 'nsm':
+        case 'network service mesh':
           image = "/static/img/nsm.svg";
+          logoIcon = (<img src={image} className={classes.icon} />);
+          break;
+        case 'octarine':
+          image = "/static/img/octarine.svg";
           logoIcon = (<img src={image} className={classes.icon} />);
           break;
         // default:
@@ -290,10 +388,16 @@ class Navigator extends React.Component {
       this.props.router.push('/');
     }
 
+    toggleMiniDrawer = () => {
+      const { onCollapseDrawer } = this.props;
+      onCollapseDrawer();
+      // this.setState({ isDrawerCollapsed: !isDrawerCollapsed })
+    }
+
     renderChildren(children, depth) {
-      const { classes } = this.props;
+      const { classes, isDrawerCollapsed } = this.props;
       const { path } = this.state;
-      
+
       if (children && children.length > 0){
       return (
         <List disablePadding>
@@ -310,8 +414,9 @@ class Navigator extends React.Component {
                   classes.item,
                   classes.itemActionable,
                   path === hrefc && classes.itemActiveItem,
+                  isDrawerCollapsed && classes.noPadding
                   )}>
-                {this.linkContent(iconc, idc, hrefc, linkc)}
+                {this.linkContent(iconc, idc, hrefc, linkc, isDrawerCollapsed)}
               </ListItem>
               {this.renderChildren(childrenc, depth + 1)}
               </React.Fragment>
@@ -323,20 +428,23 @@ class Navigator extends React.Component {
       return '';
     }
 
-    linkContent(iconc, idc, hrefc, linkc){
+    linkContent(iconc, idc, hrefc, linkc, drawerCollapsed){
       const { classes } = this.props;
+
       let linkContent = (
         <div className={classNames(classes.link)} >
           <ListItemIcon className={classes.listIcon}>
             {iconc}
           </ListItemIcon>
           <ListItemText
-            classes={{
-              primary: classes.itemPrimary,
-              textDense: classes.textDense,
-            }}>
+              className={drawerCollapsed ? classes.isHidden : classes.isDisplayed}
+              classes={{
+                primary: classes.itemPrimary,
+                textDense: classes.textDense
+              }}>
             {idc}
           </ListItemText>
+
         </div>
       );
       if(linkc){
@@ -350,21 +458,39 @@ class Navigator extends React.Component {
     }
 
     render() {
-        const { classes, updatepagepathandtitle, ...other } = this.props;
+        const { classes, isDrawerCollapsed, ...other } = this.props;
         const { path } = this.state;
         this.updateCategoriesMenus();
+        var classname;
+        if (isDrawerCollapsed){
+          classname=classes.collapseButtonWrapperRotated;
+        }
+        else{
+          classname=classes.collapseButtonWrapper;
+        }
         // const path = this.updateTitle();
         // console.log("current page:" + path);
         return (
             <NoSsr>
-            <Drawer variant="permanent" {...other}>
+            <Drawer
+              variant="permanent" {...other}
+              className={isDrawerCollapsed ? classes.sidebarCollapsed : classes.sidebarExpanded}
+              classes={{
+              paper: isDrawerCollapsed ? classes.sidebarCollapsed : classes.sidebarExpanded
+              }}
+              style={{ width: "inherit" }}
+            >
             <List disablePadding>
                 <ListItem 
                   component="a"
                   onClick={this.handleTitleClick}
-                  className={classNames(classes.firebase, classes.item, classes.itemCategory, classes.cursorPointer)}>
+                  className={
+                    classNames(classes.firebase, classes.item, classes.itemCategory, classes.cursorPointer)
+                  }>
                   <Avatar className={classes.mainLogo} src={'/static/img/meshery-logo.png'} onClick={this.handleTitleClick} />
-                  Meshery
+                  <Avatar className={classes.mainLogoText} src={'/static/img/meshery-logo-text.png'} onClick={this.handleTitleClick} />
+
+                  {/* <span className={isDrawerCollapsed ? classes.isHidden : classes.isDisplayed}>Meshery</span> */}
                 </ListItem>
                     {categories.map(({ id: childId, icon, href, show, link, children }) => {
                       if (typeof show !== 'undefined' && !show){
@@ -386,13 +512,14 @@ class Navigator extends React.Component {
                                 <div className={classNames(classes.link)} >
                                     <ListItemIcon className={classes.listIcon}>{icon}</ListItemIcon>
                                     <ListItemText
-                                    classes={{
+                                      className={isDrawerCollapsed ? classes.isHidden : classes.isDisplayed}
+                                      classes={{
                                         primary: classes.itemPrimary,
-                                        textDense: classes.textDense,
-                                    }}
+                                        textDense: classes.textDense
+                                      }}
                                     >
                                     {childId}
-                                    </ListItemText>
+                                  </ListItemText>
                                 </div>
                             </Link>
                         </ListItem>
@@ -415,17 +542,23 @@ class Navigator extends React.Component {
                           <div className={classNames(classes.link)} >
                               <ListItemIcon className={classes.listIcon}><FontAwesomeIcon icon={faExternalLinkAlt} transform="shrink-2" fixedWidth /></ListItemIcon>
                               <ListItemText
-                              classes={{
+                                className={isDrawerCollapsed ? classes.isHidden : classes.isDisplayed}
+                                classes={{
                                   primary: classes.itemPrimary,
-                                  textDense: classes.textDense,
-                              }}
+                                  textDense: classes.textDense
+                                }}
                               >
                               {'Community'}
-                              </ListItemText>
+                            </ListItemText>
+
                           </div>
                         </ListItem>
-                    <Divider className={classes.divider} />
-            </List>
+              </List>
+              <div className={classes.fixedSidebarFooter}>
+                <ListItem button onClick={() => this.toggleMiniDrawer()} className={classname}>
+                <FontAwesomeIcon icon={faChevronCircleLeft} fixedWidth color="#FFFFFF" size="lg" alt='Sidebar collapse toggle icon' />
+                </ListItem>
+              </div>
             </Drawer>
             </NoSsr>
         );
@@ -434,11 +567,12 @@ class Navigator extends React.Component {
 
 Navigator.propTypes = {
   classes: PropTypes.object.isRequired,
+  onCollapseDrawer: PropTypes.func.isRequired
 };
 
 const mapDispatchToProps = dispatch => {
   return {
-    updatepagepathandtitle: bindActionCreators(updatepagepathandtitle, dispatch)
+    updatepagetitle: bindActionCreators(updatepagetitle, dispatch)
   }
 }
 
@@ -446,10 +580,11 @@ const mapStateToProps = state => {
   // const k8sconfig = state.get("k8sConfig").toJS();
   const meshAdapters = state.get("meshAdapters").toJS();
   const meshAdaptersts = state.get("meshAdaptersts");
+  const path = state.get("page").get("path");
   // const grafana = state.get("grafana").toJS();
   // const prometheus = state.get("prometheus").toJS();
   // return {meshAdapters, meshAdaptersts, k8sconfig, grafana, prometheus};
-  return {meshAdapters, meshAdaptersts};
+  return {meshAdapters, meshAdaptersts, path};
 }
 
 export default withStyles(styles)(connect(

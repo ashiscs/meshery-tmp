@@ -179,6 +179,20 @@ let theme = createMuiTheme({
         width: drawerWidth,
         flexShrink: 0,
       },
+      transition: theme.transitions.create('width', {
+        easing: theme.transitions.easing.sharp,
+        duration: theme.transitions.duration.enteringScreen,
+      }),
+    },
+    drawerCollapsed: {
+      [theme.breakpoints.up('sm')]: {
+        width: theme.spacing(7) + 1,
+      },
+      transition: theme.transitions.create('width', {
+        easing: theme.transitions.easing.sharp,
+        duration: theme.transitions.duration.leavingScreen,
+      }),
+      overflowX: 'hidden',
     },
     appContent: {
       flex: 1,
@@ -225,12 +239,17 @@ class MesheryApp extends App {
 
     this.state = {
       mobileOpen: false,
+      isDrawerCollapsed: false
     };
   }
 
   handleDrawerToggle = () => {
     this.setState(state => ({ mobileOpen: !state.mobileOpen }));
   };
+
+  handleCollapseDrawer = () => {
+    this.setState(state => ({ isDrawerCollapsed: !state.isDrawerCollapsed }));
+  }
 
   handleL5CommunityClick = () => {
     if (typeof window !== 'undefined'){
@@ -313,6 +332,7 @@ class MesheryApp extends App {
 
   render() {
     const { Component, store, pageProps, classes } = this.props;
+    const { isDrawerCollapsed } = this.state;
     return (
       <NoSsr>
       <Container>
@@ -324,17 +344,20 @@ class MesheryApp extends App {
                   <MuiPickersUtilsProvider utils={MomentUtils}>
                         <div className={classes.root}>
                             <CssBaseline />
-                            <nav className={classes.drawer}>
+                            <nav className={isDrawerCollapsed ? classes.drawerCollapsed : classes.drawer}>
                                 <Hidden smUp implementation="js">
                                 <Navigator
-                                    PaperProps={{ style: { width: drawerWidth } }}
                                     variant="temporary"
                                     open={this.state.mobileOpen}
                                     onClose={this.handleDrawerToggle}
+                                    onCollapseDrawer={this.handleCollapseDrawer}
+                                    isDrawerCollapsed={isDrawerCollapsed}
                                 />
                                 </Hidden>
                                 <Hidden xsDown implementation="css">
-                                <Navigator PaperProps={{ style: { width: drawerWidth } }} />
+                                <Navigator
+                                  onCollapseDrawer={this.handleCollapseDrawer}
+                                  isDrawerCollapsed={isDrawerCollapsed} />
                                 </Hidden>
                             </nav>
                             <div className={classes.appContent}>
@@ -344,7 +367,7 @@ class MesheryApp extends App {
                                           vertical: 'top',
                                           horizontal: 'right',
                                       }}
-                                      maxSnack={5}
+                                      maxSnack={10}
                                   >
                                 <MesheryProgressBar />
                                 <main className={classes.mainContent}>
@@ -357,7 +380,8 @@ class MesheryApp extends App {
                                 </SnackbarProvider>
                               <footer className={classes.footer}>
                                 <Typography variant="body2" align="center" color="textSecondary" component="p">
-                                  <span className={classes.footerText}>Built with <FavoriteIcon className={classes.footerIcon} /> by the <span onClick={this.handleL5CommunityClick} className={classes.extl5}>Layer5 Community</span></span>
+                                 <span onClick={this.handleL5CommunityClick} className={classes.footerText}>
+                                   Built with <FavoriteIcon className={classes.footerIcon} /> by the <span className={classes.extl5}> Layer5 Community</span></span>
                                 </Typography>
                               </footer>
                             </div>
